@@ -38,12 +38,11 @@ class Learner(object):
 
 
 
-        q_swing_curr_vec = 0 #How do we estimate Q(s',a';w)? This variable is Q(curr_state, swing; w), which we need to calculate to update w
-        q_jump_curr_vec = 0 #How do we estimate Q(s',a';w)? This variable is Q(curr_state, jump; w), which we need to calculate to update w
-
         if self.last_action:
-            q_vec_last = self.__get_statevec(self.last_state)
-            dl_dw = (np.dot(self.w, q_vec_last) - (self.last_reward + self.gamma * max(q_swing_curr_vec, q_jump_curr_vec))) * self.w
+            q_swing_curr = state #How do we estimate Q(s',a';w)? This variable is Q(curr_state, swing; w), which we need to calculate to update w
+            q_jump_curr = state #How do we estimate Q(s',a';w)? This variable is Q(curr_state, jump; w), which we need to calculate to update w
+
+            dl_dw = (self.__get_q(self.last_state) - (self.last_reward + self.gamma * max(self.__get_q(q_swing_curr), self.__get_q(q_jump_curr)))) * self.w
             self.w = np.subtract(self.w, self.eta * dl_dw)
 
         if np.random.random() < self.epsilon:
@@ -54,6 +53,15 @@ class Learner(object):
         self.last_state  = state
 
         return self.last_action
+
+
+
+    def __get_q(self, state):
+        return np.dot(self.w, self.__get_statevec(state))
+
+    #Flatten the state
+    def __get_statevec(self, state):
+        return [state['tree']['bot'], state['tree']['top'],state['tree']['dist'], state['monkey']['vel'],state['monkey']['bot'], state['monkey']['top']]
 
     def reward_callback(self, reward):
         '''This gets called so you can see what reward you get.'''
