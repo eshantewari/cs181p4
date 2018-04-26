@@ -1,6 +1,7 @@
 # Imports.
 import numpy as np
 import numpy.random as npr
+import copy
 
 from SwingyMonkey import SwingyMonkey
 
@@ -14,13 +15,16 @@ class Learner(object):
         self.last_state  = None
         self.last_action = None
         self.last_reward = None
+        self.gravity = None
+
         self.epsilon = None
         self.gamma = 1
         self.eta = .1
         self.epsilon = .5
-        self.w = np.random.random(6)
+        self.w = np.random.random(8) #6 state variables + gravity + bias
 
     def reset(self):
+        self.gravity = None
         self.last_state  = None
         self.last_action = None
         self.last_reward = None
@@ -35,20 +39,55 @@ class Learner(object):
 
         # You'll need to select and action and return it.
         # Return 0 to swing and 1 to jump.
+        print(self.w)
+        if self.last_state and not self.gravity:
+            self.gravity = np.abs(state['monkey']['vel'] - self.last_state['monkey']['vel'])
 
 
+        if self.last_action >= 0:
+            #Swinging, so going down with gravity
+            q_swing_curr = copy.deepcopy(state)
 
-        if self.last_action:
-            q_swing_curr = state #How do we estimate Q(s',a';w)? This variable is Q(curr_state, swing; w), which we need to calculate to update w
-            q_jump_curr = state #How do we estimate Q(s',a';w)? This variable is Q(curr_state, jump; w), which we need to calculate to update w
+
+            x_vel = state['tree']['dist'] - self.last_state['tree']['dist'] #Horizontal speed doesn't change
+            y_vel = state['monkey']['bot'] - self.last_state['monkey']['bot']
+
+            #This game doesnt obey basic fucking physics
+            q_swing_curr['monkey']['top'] -= y_vel
+            q_swing_curr['monkey']['bot'] += y_vel 
+            q_swing_curr['monkey']['vel'] -= self.gravity
+
+            q_swing_curr['tree']['top'] -= y_vel
+            q_swing_curr['tree']['bot'] += y_vel 
+            q_swing_curr['tree']['dist'] -= x_vel
+
+            #Jumping
+            impulse = 15 #The impulse is a poisson R.V with parameter 15
+            q_jump_curr = copy.deepcopy(state)
+            q_swing_curr['monkey']['top'] -= impulse #The impulse becomes the velocity
+            q_swing_curr['monkey']['bot'] += impulse
+            q_swing_curr['monkey']['vel'] = impulse - self.gravity
+
+            q_swing_curr['tree']['top'] -= impulse
+            q_swing_curr['tree']['bot'] += impulse
+            q_swing_curr['tree']['dist'] -= x_vel
+
+
 
             dl_dw = (self.__get_q(self.last_state) - (self.last_reward + self.gamma * max(self.__get_q(q_swing_curr), self.__get_q(q_jump_curr)))) * self.w
             self.w = np.subtract(self.w, self.eta * dl_dw)
+        
 
-        if np.random.random() < self.epsilon:
-            self.last_action = 1
+
+            if np.random.random() < self.epsilon:
+                self.last_action = 1
+            else:
+                self.last_action = 0
+
+        #We're on our difst action, which we want to be 0 to infer gravity        
         else:
             self.last_action = 0
+
 
         self.last_state  = state
 
@@ -61,7 +100,7 @@ class Learner(object):
 
     #Flatten the state
     def __get_statevec(self, state):
-        return [state['tree']['bot'], state['tree']['top'],state['tree']['dist'], state['monkey']['vel'],state['monkey']['bot'], state['monkey']['top']]
+        return [1, self.gravity, state['tree']['bot'], state['tree']['top'],state['tree']['dist'], state['monkey']['vel'],state['monkey']['bot'], state['monkey']['top']]
 
     def reward_callback(self, reward):
         '''This gets called so you can see what reward you get.'''
