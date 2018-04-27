@@ -21,7 +21,7 @@ class Learner(object):
         self.gamma = 1
         self.eta = .1
         self.epsilon = .5
-        self.w = np.random.random(8) #6 state variables + gravity + bias
+        self.w = np.random.random(8)*.01 #bias, gravity, 6 state variables
 
     def reset(self):
         self.gravity = None
@@ -75,6 +75,7 @@ class Learner(object):
 
 
             dl_dw = (self.__get_q(self.last_state) - (self.last_reward + self.gamma * max(self.__get_q(q_swing_curr), self.__get_q(q_jump_curr)))) * self.w
+            print dl_dw
             self.w = np.subtract(self.w, self.eta * dl_dw)
         
 
