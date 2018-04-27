@@ -1,7 +1,9 @@
 # Imports.
 import numpy as np
 import numpy.random as npr
-import copy
+from keras.models import Sequential
+from keras.layers.core import Dense, Dropout, Activation
+from keras.optimizers import RMSprop
 
 from SwingyMonkey import SwingyMonkey
 
@@ -20,14 +22,36 @@ class Learner(object):
         self.epsilon = None
         self.gamma = 1
         self.eta = .1
-        self.epsilon = .5
-        self.w = np.random.random(8)*.01 #bias, gravity, 6 state variables
+        self.epsilon = 1
+
+        self.model = Sequential()
+        self.model.add(Dense(2, init='lecun_uniform', input_shape=(7,)))
+        self.model.add(Activation('relu'))
+        #model.add(Dropout(0.2)) I'm not using dropout, but maybe you wanna give it a try?
+
+        # self.model.add(Dense(50, init='lecun_uniform'))
+        # self.model.add(Activation('relu'))
+        #model.add(Dropout(0.2))
+
+        #2 output states corresponding to the 2 actions
+        # self.model.add(Dense(2, init='lecun_uniform'))
+        self.model.add(Activation('linear')) #linear output so we can have range of real-valued outputs
+
+        rms = RMSprop()
+        self.model.compile(loss='mse', optimizer=rms)
 
     def reset(self):
         self.gravity = None
         self.last_state  = None
         self.last_action = None
         self.last_reward = None
+
+
+    #Flatten the state
+    def __get_statevec(self, state):
+        vec = [self.gravity, state['tree']['bot'], state['tree']['top'],state['tree']['dist'], state['monkey']['vel'],state['monkey']['bot'], state['monkey']['top']]
+        return np.array(vec).reshape((1, len(vec)))
+
 
     def action_callback(self, state):
         '''
@@ -39,69 +63,50 @@ class Learner(object):
 
         # You'll need to select and action and return it.
         # Return 0 to swing and 1 to jump.
-        print(self.w)
-        if self.last_state and not self.gravity:
-            self.gravity = np.abs(state['monkey']['vel'] - self.last_state['monkey']['vel'])
-
-
-        if self.last_action >= 0:
-            #Swinging, so going down with gravity
-            q_swing_curr = copy.deepcopy(state)
-
-
-            x_vel = state['tree']['dist'] - self.last_state['tree']['dist'] #Horizontal speed doesn't change
-            y_vel = state['monkey']['bot'] - self.last_state['monkey']['bot']
-
-            #This game doesnt obey basic fucking physics
-            q_swing_curr['monkey']['top'] -= y_vel
-            q_swing_curr['monkey']['bot'] += y_vel 
-            q_swing_curr['monkey']['vel'] -= self.gravity
-
-            q_swing_curr['tree']['top'] -= y_vel
-            q_swing_curr['tree']['bot'] += y_vel 
-            q_swing_curr['tree']['dist'] -= x_vel
-
-            #Jumping
-            impulse = 15 #The impulse is a poisson R.V with parameter 15
-            q_jump_curr = copy.deepcopy(state)
-            q_swing_curr['monkey']['top'] -= impulse #The impulse becomes the velocity
-            q_swing_curr['monkey']['bot'] += impulse
-            q_swing_curr['monkey']['vel'] = impulse - self.gravity
-
-            q_swing_curr['tree']['top'] -= impulse
-            q_swing_curr['tree']['bot'] += impulse
-            q_swing_curr['tree']['dist'] -= x_vel
 
 
 
-            dl_dw = (self.__get_q(self.last_state) - (self.last_reward + self.gamma * max(self.__get_q(q_swing_curr), self.__get_q(q_jump_curr)))) * self.w
-            print dl_dw
-            self.w = np.subtract(self.w, self.eta * dl_dw)
-        
+
+        #We've done one iteration with the current game but have yet to update gravity
+        if self.last_state and self.gravity < 0:
+            self.gravity = np.abs(state['monkey']['vel'] - self.last_state['monkey']['vel']) #Velocity is in the y direction
+
+        #We are treating the last state as s and the current state as s', in the eyes of our update
+        if self.last_state:
+            #Q(s', a') values for the 2 actions
+            qval = self.model.predict(self.__get_statevec(state), batch_size=1)
+
+            #Get max_Q(s',a'), we could change this to SARSA
+            maxQ = np.max(qval)
+
+            #Observed Reward: r(s,a)
+            reward = self.last_reward
+
+            #Updating our w parameters based on Q(s,a)
+            y = np.zeros((1,2))
+            y[:] = qval[:]
+            update = (reward + (self.gamma * maxQ))
+            y[0][self.last_action] = update 
+            self.model.fit(self.__get_statevec(self.last_state), y, batch_size=1, nb_epoch=1, verbose=1)
 
 
-            if np.random.random() < self.epsilon:
-                self.last_action = 1
-            else:
-                self.last_action = 0
+            #Choose an epsilon greedy policy for the current state 
+            if self.epsilon > 0.1:
+                self.epsilon -= .001
 
-        #We're on our difst action, which we want to be 0 to infer gravity        
+
+            if (npr.random() < self.epsilon): #choose random action
+                action = np.random.randint(0,2)
+            else: #choose best action from Q(s',a') values
+                action = (np.argmax(qval))
+
         else:
-            self.last_action = 0
+            action = 0 #So that we can infer gravity, I'm open to better solutions to this (which is to just let the monkey swing in the first step)
 
-
-        self.last_state  = state
-
+        self.last_state = state
+        self.last_action = action
+        print self.last_action
         return self.last_action
-
-
-
-    def __get_q(self, state):
-        return np.dot(self.w, self.__get_statevec(state))
-
-    #Flatten the state
-    def __get_statevec(self, state):
-        return [1, self.gravity, state['tree']['bot'], state['tree']['top'],state['tree']['dist'], state['monkey']['vel'],state['monkey']['bot'], state['monkey']['top']]
 
     def reward_callback(self, reward):
         '''This gets called so you can see what reward you get.'''
@@ -144,7 +149,7 @@ if __name__ == '__main__':
 	hist = []
 
 	# Run games. 
-	run_games(agent, hist, 20, 10)
+	run_games(agent, hist, 1000, 1)
 
 	# Save history. 
 	np.save('hist',np.array(hist))
