@@ -4,6 +4,7 @@ import numpy.random as npr
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
 from keras.optimizers import RMSprop
+import copy
 
 from SwingyMonkey import SwingyMonkey
 
@@ -25,7 +26,7 @@ class Learner(object):
         self.epsilon = 1
 
         self.model = Sequential()
-        self.model.add(Dense(2, init='lecun_uniform', input_shape=(7,)))
+        self.model.add(Dense(50, init='lecun_uniform', input_shape=(7,)))
         self.model.add(Activation('relu'))
         #model.add(Dropout(0.2)) I'm not using dropout, but maybe you wanna give it a try?
 
@@ -33,8 +34,8 @@ class Learner(object):
         # self.model.add(Activation('relu'))
         #model.add(Dropout(0.2))
 
-        #2 output states corresponding to the 2 actions
-        # self.model.add(Dense(2, init='lecun_uniform'))
+        #Predict the value of the state
+        self.model.add(Dense(1, init='lecun_uniform'))
         self.model.add(Activation('linear')) #linear output so we can have range of real-valued outputs
 
         rms = RMSprop()
@@ -65,8 +66,6 @@ class Learner(object):
         # Return 0 to swing and 1 to jump.
 
 
-
-
         #We've done one iteration with the current game but have yet to update gravity
         if self.last_state and self.gravity < 0:
             self.gravity = np.abs(state['monkey']['vel'] - self.last_state['monkey']['vel']) #Velocity is in the y direction
@@ -74,19 +73,48 @@ class Learner(object):
         #We are treating the last state as s and the current state as s', in the eyes of our update
         if self.last_state:
             #Q(s', a') values for the 2 actions
-            qval = self.model.predict(self.__get_statevec(state), batch_size=1)
+
+            swing = copy.deepcopy(state)
+
+
+            x_vel = state['tree']['dist'] - self.last_state['tree']['dist'] #Horizontal speed doesn't change
+            y_vel = state['monkey']['bot'] - self.last_state['monkey']['bot']
+
+            #This game doesnt obey basic fucking physics
+            swing['monkey']['top'] -= y_vel
+            swing['monkey']['bot'] += y_vel 
+            swing['monkey']['vel'] -= self.gravity
+
+            swing['tree']['top'] -= y_vel
+            swing['tree']['bot'] += y_vel 
+            swing['tree']['dist'] -= x_vel
+
+            #Jumping
+            impulse = 15 #The impulse is a poisson R.V with parameter 15
+            jump = copy.deepcopy(state)
+            jump['monkey']['top'] -= impulse #The impulse becomes the velocity
+            jump['monkey']['bot'] += impulse
+            jump['monkey']['vel'] = impulse - self.gravity
+
+            jump['tree']['top'] -= impulse
+            jump['tree']['bot'] += impulse
+            jump['tree']['dist'] -= x_vel
+
+
+            qval_swing = self.model.predict(self.__get_statevec(swing), batch_size=1)
+            qval_jump = self.model.predict(self.__get_statevec(jump), batch_size=1)
+
 
             #Get max_Q(s',a'), we could change this to SARSA
-            maxQ = np.max(qval)
+            maxQ = max(qval_swing, qval_jump)
 
             #Observed Reward: r(s,a)
             reward = self.last_reward
 
             #Updating our w parameters based on Q(s,a)
-            y = np.zeros((1,2))
-            y[:] = qval[:]
-            update = (reward + (self.gamma * maxQ))
-            y[0][self.last_action] = update 
+            y = reward + (self.gamma * maxQ)
+
+
             self.model.fit(self.__get_statevec(self.last_state), y, batch_size=1, nb_epoch=1, verbose=1)
 
 
@@ -98,7 +126,7 @@ class Learner(object):
             if (npr.random() < self.epsilon): #choose random action
                 action = np.random.randint(0,2)
             else: #choose best action from Q(s',a') values
-                action = (np.argmax(qval))
+                action = (np.argmax([qval_swing, qval_jump]))
 
         else:
             action = 0 #So that we can infer gravity, I'm open to better solutions to this (which is to just let the monkey swing in the first step)
