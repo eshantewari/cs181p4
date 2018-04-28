@@ -115,7 +115,7 @@ class Learner(object):
             y = reward + (self.gamma * maxQ)
 
 
-            self.model.fit(self.__get_statevec(self.last_state), y, batch_size=1, nb_epoch=1, verbose=1)
+            self.model.fit(self.__get_statevec(state), y, batch_size=1, nb_epoch=1, verbose=1)
 
 
             #Choose an epsilon greedy policy for the current state 
@@ -170,16 +170,14 @@ def run_games(learner, hist, iters = 100, t_len = 100):
 
 if __name__ == '__main__':
 
-	# Select agent.
-	agent = Learner()
+    # Select agent.
+    agent = Learner()
 
-	# Empty list to save history.
-	hist = []
+    # Empty list to save history.
+    hist = []
 
-	# Run games. 
-	run_games(agent, hist, 1000, 1)
+    # Run games. 
+    run_games(agent, hist, 1000, 1)
 
-	# Save history. 
-	np.save('hist',np.array(hist))
-
-
+    # Save history. 
+    np.save('hist',np.array(hist))
