@@ -35,7 +35,7 @@ class Learner(object):
         self.Q = np.zeros(self.dimensions + (2,))
 
         self.epsilon = 0.05
-        self.gamma = 0.1
+        self.gamma = 1
         self.alpha = 0.001
 
         self.iteration = 0
@@ -147,7 +147,7 @@ if __name__ == '__main__':
 	hist = []
 
 	# Run games.
-	run_games(agent, hist, 500, 1)
+	run_games(agent, hist, 1000, 1)
 
 	# Save history.
 	np.save('hist',np.array(hist))
