@@ -17,24 +17,24 @@ class Learner(object):
         self.last_reward = None
 
         # Still need to take into account.
-        self.gravity = None
+        self.gravity = 4
 
 
         # Discretize.
-        self.velocity_bin = 10
+        self.velocity_bin = 20
         self.velocity_range = (-40, 40)
 
-        self.tree_dist_bin = 20
+        self.tree_dist_bin = 10
         self.tree_dist_range = (-200, 500)
 
-        self.top_dif_bin = 20
+        self.top_dif_bin = 10
         self.top_dif_range = (-400, 400)
 
         # Q Table.
         self.dimensions = (self.velocity_bin, self.tree_dist_bin, self.top_dif_bin)
         self.Q = np.zeros(self.dimensions + (2,))
 
-        self.epsilon = 0.05
+        self.epsilon = 0.5
         self.gamma = 1
         self.alpha = 0.001
 
@@ -44,7 +44,7 @@ class Learner(object):
         self.last_state  = None
         self.last_action = None
         self.last_reward = None
-        self.gravity = None
+        self.gravity = 4
         self.iteration += 1
 
 
@@ -60,7 +60,7 @@ class Learner(object):
         heightDif = state['tree']['top'] - state['monkey']['top']
         top_dif = self.sortIntoBin(heightDif, self.top_dif_range, self.top_dif_bin)
 
-        return(velocity, tree_dist, top_dif)
+        return (velocity, tree_dist, top_dif)
 
 
     def action_callback(self, state):
@@ -86,7 +86,7 @@ class Learner(object):
         ls = self.stateConversion(self.last_state)
 
         a = (self.last_action,)
-        self.Q[ls + a] = self.Q[ls + a] + self.alpha*(self.last_reward + self.gamma*Q_max - self.Q[ls + a])
+        self.Q[ls + a] = self.Q[ls + a] - self.alpha*(self.Q[ls + a] - (self.last_reward + self.gamma*Q_max))
 
 
 
@@ -98,10 +98,11 @@ class Learner(object):
         # Choose action from epsilon-greedy policy.
         amax = np.argmax(self.Q[s])
         new_action = npr.choice([amax, 1-amax], p=[1.0 - self.epsilon, self.epsilon])
+        if self.epsilon >= 0.01: self.epsilon -= .00005
 
         self.last_action = new_action
         self.last_state  = state
-
+        #print(self.epsilon)
         return self.last_action
 
     def reward_callback(self, reward):
@@ -128,7 +129,7 @@ def run_games(learner, hist, iters = 100, t_len = 100):
 
         # Save score history.
         hist.append(swing.score)
-        print(swing.score)
+        #print(swing.score)
 
         # Reset the state of the learner.
         learner.reset()

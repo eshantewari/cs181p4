@@ -26,8 +26,8 @@ class Learner(object):
         self.epsilon = 1
 
         self.model = Sequential()
-        self.model.add(Dense(50, init='lecun_uniform', input_shape=(7,)))
-        self.model.add(Activation('relu'))
+        self.model.add(Dense(1, init='lecun_uniform', input_shape=(7,)))
+        self.model.add(Activation('sigmoid'))
         #model.add(Dropout(0.2)) I'm not using dropout, but maybe you wanna give it a try?
 
         # self.model.add(Dense(50, init='lecun_uniform'))
@@ -35,7 +35,7 @@ class Learner(object):
         #model.add(Dropout(0.2))
 
         #Predict the value of the state
-        self.model.add(Dense(1, init='lecun_uniform'))
+        #self.model.add(Dense(1, init='lecun_uniform'))
         self.model.add(Activation('linear')) #linear output so we can have range of real-valued outputs
 
         rms = RMSprop()
@@ -47,6 +47,8 @@ class Learner(object):
         self.last_action = None
         self.last_reward = None
 
+    def getGravity(self):
+        return self.gravity
 
     #Flatten the state
     def __get_statevec(self, state):
@@ -142,7 +144,7 @@ class Learner(object):
         self.last_reward = reward
 
 
-def run_games(learner, hist, iters = 100, t_len = 100):
+def run_games(learner, score_hist, gravity_hist, iters = 100, t_len = 100):
     '''
     Driver function to simulate learning by having the agent play a sequence of games.
     '''
@@ -160,7 +162,8 @@ def run_games(learner, hist, iters = 100, t_len = 100):
             pass
         
         # Save score history.
-        hist.append(swing.score)
+        score_hist.append(swing.score)
+        gravity_hist.append(learner.getGravity())
 
         # Reset the state of the learner.
         learner.reset()
@@ -174,10 +177,13 @@ if __name__ == '__main__':
     agent = Learner()
 
     # Empty list to save history.
-    hist = []
+    score_hist = []
+    gravity_hist = []
+
 
     # Run games. 
-    run_games(agent, hist, 1000, 1)
+    run_games(agent, score_hist, gravity_hist, 1000, 1)
 
     # Save history. 
-    np.save('hist',np.array(hist))
+    np.save('score_hist',np.array(score_hist))
+    np.save('gravity_hist', np.array(gravity_hist))
