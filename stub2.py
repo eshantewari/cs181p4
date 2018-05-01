@@ -24,10 +24,10 @@ class Learner(object):
         self.velocity_bin = 20
         self.velocity_range = (-40, 40)
 
-        self.tree_dist_bin = 10
+        self.tree_dist_bin = 20
         self.tree_dist_range = (-200, 500)
 
-        self.top_dif_bin = 10
+        self.top_dif_bin = 20
         self.top_dif_range = (-400, 400)
 
         # Q Table.
@@ -78,6 +78,44 @@ class Learner(object):
             self.last_action = int(new_action)
             return self.last_action
 
+
+        if(state['monkey']['vel'] > 20):
+            print("Heuristic")
+            self.last_state = state
+            self.last_action = 0
+            return self.last_action
+
+        if(state['monkey']['vel'] < -30):
+            print("Heuristic")
+            self.last_state = state
+            self.last_action = 1
+            return self.last_action
+
+        if(state['tree']['dist'] < 250 and state['monkey']['top'] > 275):
+            print("Heuristic")
+            self.last_state = state
+            self.last_action = 0
+            return self.last_action
+
+        if(state['tree']['dist'] < 300 and state['monkey']['top'] < 75):
+            print("Heuristic")
+            self.last_state = state
+            self.last_action = 1
+            return self.last_action
+
+        if(state['tree']['dist'] < 300 and state['monkey']['bot'] -  state['tree']['bot'] < 75):
+            print("Heuristic")
+            self.last_state = state
+            self.last_action = 1
+            return self.last_action
+
+        if(state['tree']['dist'] < 300 and state['tree']['top'] -  state['monkey']['top'] < 75):
+            print("Heuristic")
+            self.last_state = state
+            self.last_action = 0
+            return self.last_action
+
+
         # Do some Q-learning.
         s = self.stateConversion(state)
         Q_max = np.max(self.Q[s])
@@ -98,7 +136,9 @@ class Learner(object):
         # Choose action from epsilon-greedy policy.
         amax = np.argmax(self.Q[s])
         new_action = npr.choice([amax, 1-amax], p=[1.0 - self.epsilon, self.epsilon])
-        if self.epsilon >= 0.01: self.epsilon -= .00005
+        if self.epsilon >= 0.01: 
+            self.epsilon -= .0005
+        print("Q Table")
 
         self.last_action = new_action
         self.last_state  = state
@@ -126,7 +166,7 @@ def run_games(learner, hist, iters = 100, t_len = 100):
         # Loop until you hit something.
         while swing.game_loop():
             pass
-
+        print("Death")
         # Save score history.
         hist.append(swing.score)
         #print(swing.score)
@@ -148,7 +188,7 @@ if __name__ == '__main__':
 	hist = []
 
 	# Run games.
-	run_games(agent, hist, 1000, 1)
+	run_games(agent, hist, 1000, 20)
 
 	# Save history.
 	np.save('hist',np.array(hist))
