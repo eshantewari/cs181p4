@@ -73,48 +73,87 @@ class Learner(object):
 
         # For the first iteration.
         if(self.last_state == None):
-            new_action = npr.rand() < 0.1
+            new_action = 0
             self.last_state = state
             self.last_action = int(new_action)
             return self.last_action
 
+        if(self.last_state and self.gravity < 0):
+            self.gravity = state['monkey']['vel'] - self.last_state['monkey']['vel']
+        
+        if self.gravity == 4:
+            if(state['monkey']['vel'] > 20):
+                print("Heuristic")
+                self.last_state = state
+                self.last_action = 0
+                return self.last_action
 
-        if(state['monkey']['vel'] > 20):
-            print("Heuristic")
-            self.last_state = state
-            self.last_action = 0
-            return self.last_action
+            if(state['monkey']['vel'] < -30):
+                print("Heuristic")
+                self.last_state = state
+                self.last_action = 1
+                return self.last_action
 
-        if(state['monkey']['vel'] < -30):
-            print("Heuristic")
-            self.last_state = state
-            self.last_action = 1
-            return self.last_action
+            if(state['tree']['dist'] < 400 and state['monkey']['top'] > 275):
+                print("Heuristic")
+                self.last_state = state
+                self.last_action = 0
+                return self.last_action
 
-        if(state['tree']['dist'] < 250 and state['monkey']['top'] > 275):
-            print("Heuristic")
-            self.last_state = state
-            self.last_action = 0
-            return self.last_action
+            if(state['tree']['dist'] < 400 and state['monkey']['top'] < 75):
+                print("Heuristic")
+                self.last_state = state
+                self.last_action = 1
+                return self.last_action
 
-        if(state['tree']['dist'] < 300 and state['monkey']['top'] < 75):
-            print("Heuristic")
-            self.last_state = state
-            self.last_action = 1
-            return self.last_action
+            if(state['tree']['dist'] < 400 and state['monkey']['bot'] -  state['tree']['bot'] < 75):
+                print("Heuristic")
+                self.last_state = state
+                self.last_action = 1
+                return self.last_action
 
-        if(state['tree']['dist'] < 300 and state['monkey']['bot'] -  state['tree']['bot'] < 75):
-            print("Heuristic")
-            self.last_state = state
-            self.last_action = 1
-            return self.last_action
+            if(state['tree']['dist'] < 400 and state['tree']['top'] -  state['monkey']['top'] < 75):
+                print("Heuristic")
+                self.last_state = state
+                self.last_action = 0
+                return self.last_action
+        else:
+            if(state['monkey']['vel'] > 15):
+                print("Heuristic")
+                self.last_state = state
+                self.last_action = 0
+                return self.last_action
 
-        if(state['tree']['dist'] < 300 and state['tree']['top'] -  state['monkey']['top'] < 75):
-            print("Heuristic")
-            self.last_state = state
-            self.last_action = 0
-            return self.last_action
+            if(state['monkey']['vel'] < -25):
+                print("Heuristic")
+                self.last_state = state
+                self.last_action = 1
+                return self.last_action
 
+            if(state['tree']['dist'] < 250 and state['monkey']['top'] > 250):
+                print("Heuristic")
+                self.last_state = state
+                self.last_action = 0
+                return self.last_action
+
+            if(state['tree']['dist'] < 300 and state['monkey']['top'] < 100):
+                print("Heuristic")
+                self.last_state = state
+                self.last_action = 1
+                return self.last_action
+
+            if(state['tree']['dist'] < 300 and state['monkey']['bot'] -  state['tree']['bot'] < 100):
+                print("Heuristic")
+                self.last_state = state
+                self.last_action = 1
+                return self.last_action
+
+            if(state['tree']['dist'] < 300 and state['tree']['top'] -  state['monkey']['top'] < 100):
+                print("Heuristic")
+                self.last_state = state
+                self.last_action = 0
+                return self.last_action
+        
 
         # Do some Q-learning.
         s = self.stateConversion(state)
@@ -188,7 +227,7 @@ if __name__ == '__main__':
 	hist = []
 
 	# Run games.
-	run_games(agent, hist, 1000, 20)
+	run_games(agent, hist, 1000, 80)
 
 	# Save history.
 	np.save('hist',np.array(hist))
